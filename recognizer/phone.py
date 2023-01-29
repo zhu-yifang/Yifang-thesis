@@ -1,12 +1,14 @@
 import os
 import re
 import numpy as np
+from python_speech_features import mfcc
 from scipy.io import wavfile
 
 
 class Phone():
 
-    def __init__(self, data, transcription) -> None:
+    def __init__(self, samplerate, data, transcription) -> None:
+        self.samplerate = samplerate
         self.data = data
         self.mfcc_seq = None
         self.transcription = transcription
@@ -15,7 +17,8 @@ class Phone():
         return f"{self.transcription}"
 
     def get_mfcc_seq(self):
-        pass
+        self.mfcc_seq = mfcc(self.data, self.samplerate)
+        return self.mfcc_seq
 
 
 class File():
@@ -24,6 +27,7 @@ class File():
         self.path = path
         self.name = name  # filename without extension
         self.wav = np.array([])
+        self.samplerate = 16000
         self.phn = []
 
     def __str__(self) -> str:
@@ -35,7 +39,7 @@ class File():
             start, end, transcription = line.split()
             start, end = int(start), int(end)
             wav_data = self.wav[start:end]
-            phone = Phone(wav_data, transcription)
+            phone = Phone(self.samplerate, wav_data, transcription)
             phones.append(phone)
         return phones
 
@@ -62,8 +66,7 @@ def read_files(files):
         with open(filepath + ".PHN") as f:
             file.phn = f.readlines()
         # read .wav
-        _, data = wavfile.read(filepath + ".WAV.wav")
-        file.wav = data
+        file.samplerate, file.wav = wavfile.read(filepath + ".WAV.wav")
     return files
 
 
@@ -76,4 +79,5 @@ if __name__ == "__main__":
     phones = []
     for file in files:
         phones += file.get_phones()
-    print(phones[0].data)
+    for phone in phones:
+        phone.get_mfcc_seq()
