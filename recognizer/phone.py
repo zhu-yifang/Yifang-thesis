@@ -2,8 +2,9 @@ import os
 import re
 import numpy as np
 from python_speech_features import mfcc
+from tslearn.metrics import dtw
 from scipy.io import wavfile
-
+from collections import Counter
 
 class Phone():
 
@@ -14,11 +15,15 @@ class Phone():
         self.transcription = transcription
 
     def __str__(self) -> str:
-        return f"{self.transcription}"
+        return f"samplerate = {self.samplerate}, data = {self.data}, \
+            transcription = {self.transcription}, mfcc_seq = {self.mfcc_seq}"
 
     def get_mfcc_seq(self):
         self.mfcc_seq = mfcc(self.data, self.samplerate)
         return self.mfcc_seq
+
+    def distance_to(self, other: "Phone"):
+        return dtw(self.mfcc_seq, other.mfcc_seq)
 
 
 class File():
@@ -31,7 +36,8 @@ class File():
         self.phn = []
 
     def __str__(self) -> str:
-        return f"path = {self.path}, name = {self.name}, wav = {self.wav}, phn = {self.phn}"
+        return f"path = {self.path}, name = {self.name}, wav = {self.wav}, \
+            phn = {self.phn}"
 
     def get_phones(self):
         phones = []
@@ -74,10 +80,37 @@ if __name__ == "__main__":
     # get the paths of all .wav and .PHN files in the training set
     train_set_path = "/Users/zhuyifang/Downloads/archive/data/TRAIN"
     wav_re = re.compile(r".+WAV\.wav")
-    files = get_all_matched_files(train_set_path)
-    read_files(files)
-    phones = []
-    for file in files:
-        phones += file.get_phones()
-    for phone in phones:
+    train_set_files = get_all_matched_files(train_set_path)
+    read_files(train_set_files)
+    train_set_phones = []
+    for file in train_set_files:
+        train_set_phones += file.get_phones()
+    for phone in train_set_phones:
         phone.get_mfcc_seq()
+    
+    # test
+    test_set_path = "/Users/zhuyifang/Downloads/archive/data/TEST"
+    test_set_files = get_all_matched_files(test_set_path)
+    read_files(test_set_files)
+    test_set_phones = []
+    for file in test_set_files:
+        test_set_phones += file.get_phones()
+    correct_num = 0
+    print(len(test_set_phones))
+    for phone in test_set_phones:
+        phone.get_mfcc_seq()
+        # using KNN to find the nearest neighbor, k = 5
+        distances = []
+        for train_phone in train_set_phones:
+            distances.append((phone.distance_to(train_phone), train_phone.transcription))
+        distances.sort(key=lambda x: x[0])
+        counter = Counter()
+        for distance, transcription in distances:
+            counter[transcription] += 1
+            if counter[transcription] == 5:
+                #print(f"Predicted transcription: {transcription}, actual transcription: {phone.transcription}")
+                if transcription == phone.transcription:
+                    correct_num += 1
+                break
+    print(f"Accuracy: {correct_num / len(test_set_phones)}")
+
