@@ -79,7 +79,7 @@ def read_files(files):
 
 
 if __name__ == "__main__":
-    # get the paths of all .wav and .PHN files in the training set
+    # read all the files in the training set and make them into Phone objects
     train_set_path = "/Users/zhuyifang/Downloads/archive/data/TRAIN"
     wav_re = re.compile(r".+WAV\.wav")
     train_set_files = get_all_matched_files(train_set_path)
@@ -90,34 +90,58 @@ if __name__ == "__main__":
     for phone in train_set_phones:
         phone.get_mfcc_seq()
 
-    # test
+    print("train set parse finished")
+
+    # read all the files in the testing set and make them into Phone objects
     test_set_path = "/Users/zhuyifang/Downloads/archive/data/TEST"
     test_set_files = get_all_matched_files(test_set_path)
     read_files(test_set_files)
     test_set_phones = []
     for file in test_set_files:
         test_set_phones += file.get_phones()
+
+    print("test set parse finished")
+
     correct_num = 0
-    print(len(test_set_phones))
-    for phone in test_set_phones:
-        phone.get_mfcc_seq()
-        # using KNN to find the nearest neighbor, k = 5
+    print(len(
+        test_set_phones))  # print how many phones are there in the test set
+
+    # iterate all the phones in the test set
+    for test_set_phone in test_set_phones:
+        test_set_phone.get_mfcc_seq()
+        # using KNN to find the nearest neighbor
         k = 10
+        # using a heap to keep track of the samllest k element
+        # the items in the heap are tuples like (negative distance to the test_set_phone, train_set_phone transcription)
         heap = []
         heapq.heapify(heap)
-        for train_phone in train_set_phones:
-            heapq.heappush(
-                heap,
-                (phone.distance_to(train_phone), train_phone.transcription))
+        for train_set_phone in train_set_phones:
+            distance = test_set_phone.distance_to(train_set_phone)
+            if len(heap) < k:
+                heapq.heappush(heap,
+                               (-distance, train_set_phone.transcription))
+            else:
+                if -heap[0][0] > distance:
+                    heapq.heapreplace(
+                        heap, (-distance, train_set_phone.transcription))
+
+        # using Counter to get the most common phone in the heap
         counter = Counter()
         for i in range(k):
             _, transcription = heapq.heappop(heap)
             counter[transcription] += 1
+
+        # predicted_phone is the most common phone in the heap
         preditcted_phone = counter.most_common(1)[0][0]
-        if preditcted_phone == phone.transcription:
+
+        # if the prediction is correct
+        if preditcted_phone == test_set_phone.transcription:
             correct_num += 1
+            print("correct")
+        # if the prediction is wrong
         else:
             print(
                 f'predicted phone is: {preditcted_phone}, actual phone is: {phone.transcription}'
             )
+    # print the accuracy
     print(f"Accuracy: {correct_num / len(test_set_phones)}")
