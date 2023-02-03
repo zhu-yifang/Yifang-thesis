@@ -1,12 +1,17 @@
 import os
+import random
 import re
 import numpy as np
+import sys
+from pathlib import Path
 from python_speech_features import mfcc
 from tslearn.metrics import dtw
 from scipy.io import wavfile
 from collections import Counter
 import heapq
 
+TIMIT = Path("/Users/zhuyifang/Downloads/archive")
+#TIMIT = Path("/home/bart/work/reed-theses/zhu-thesis/timit")
 
 class Phone():
 
@@ -80,7 +85,7 @@ def read_files(files):
 
 if __name__ == "__main__":
     # read all the files in the training set and make them into Phone objects
-    train_set_path = "/Users/zhuyifang/Downloads/archive/data/TRAIN"
+    train_set_path = TIMIT / "data/TRAIN"
     wav_re = re.compile(r".+WAV\.wav")
     train_set_files = get_all_matched_files(train_set_path)
     read_files(train_set_files)
@@ -90,24 +95,25 @@ if __name__ == "__main__":
     for phone in train_set_phones:
         phone.get_mfcc_seq()
 
-    print("train set parse finished")
+    print(f"train set parse finished: {len(train_set_phones)} phones")
 
     # read all the files in the testing set and make them into Phone objects
-    test_set_path = "/Users/zhuyifang/Downloads/archive/data/TEST"
+    test_set_path = TIMIT / "data/TEST"
     test_set_files = get_all_matched_files(test_set_path)
     read_files(test_set_files)
     test_set_phones = []
     for file in test_set_files:
         test_set_phones += file.get_phones()
 
-    print("test set parse finished")
+    print(f"test set parse finished: {len(test_set_phones)} phones")
 
     correct_num = 0
-    print(len(
-        test_set_phones))  # print how many phones are there in the test set
 
     # iterate all the phones in the test set
-    for test_set_phone in test_set_phones:
+    nphones = int(sys.argv[1])
+    test_phones = random.sample(test_set_phones, nphones)
+    test_set_phones in test_set_phones
+    for test_set_phone in test_phones:
         test_set_phone.get_mfcc_seq()
         # using KNN to find the nearest neighbor
         k = 10
@@ -132,16 +138,16 @@ if __name__ == "__main__":
             counter[transcription] += 1
 
         # predicted_phone is the most common phone in the heap
-        preditcted_phone = counter.most_common(1)[0][0]
+        predicted_phone = counter.most_common(1)[0][0]
 
         # if the prediction is correct
-        if preditcted_phone == test_set_phone.transcription:
+        if predicted_phone == test_set_phone.transcription:
             correct_num += 1
             print("correct")
         # if the prediction is wrong
         else:
             print(
-                f'predicted phone is: {preditcted_phone}, actual phone is: {phone.transcription}'
+                f'predicted phone is: {predicted_phone}, actual phone is: {phone.transcription}'
             )
     # print the accuracy
-    print(f"Accuracy: {correct_num / len(test_set_phones)}")
+    print(f"Accuracy: {correct_num / nphones}")
