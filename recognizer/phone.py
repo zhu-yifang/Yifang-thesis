@@ -8,10 +8,12 @@ from python_speech_features import mfcc
 from tslearn.metrics import dtw
 from scipy.io import wavfile
 from collections import Counter
+import pickle
 import heapq
 
 TIMIT = Path("/Users/zhuyifang/Downloads/archive")
 #TIMIT = Path("/home/bart/work/reed-theses/zhu-thesis/timit")
+
 
 class Phone():
 
@@ -72,7 +74,7 @@ def get_all_matched_files(root: str) -> list[File]:
 
 
 # read .wav and .PHN
-def read_files(files):
+def read_files(files: list[File]):
     for file in files:
         filepath = os.path.join(file.path, file.name)
         # read .PHN
@@ -82,31 +84,27 @@ def read_files(files):
         file.samplerate, file.wav = wavfile.read(filepath + ".WAV.wav")
     return files
 
-
-if __name__ == "__main__":
-    # read all the files in the training set and make them into Phone objects
-    train_set_path = TIMIT / "data/TRAIN"
+# read all the files in the training set and make them into Phone objects
+def get_phones(TIMIT_path, set_name):
+    set_path = TIMIT_path / f"data/{set_name}"
     wav_re = re.compile(r".+WAV\.wav")
-    train_set_files = get_all_matched_files(train_set_path)
-    read_files(train_set_files)
-    train_set_phones = []
-    for file in train_set_files:
-        train_set_phones += file.get_phones()
+    set_files = get_all_matched_files(set_path)
+    read_files(set_files)
+    set_phones = []
+    for file in set_files:
+        set_phones += file.get_phones()
     for phone in train_set_phones:
         phone.get_mfcc_seq()
-
     print(f"train set parse finished: {len(train_set_phones)} phones")
+    return set_phones
 
-    # read all the files in the testing set and make them into Phone objects
-    test_set_path = TIMIT / "data/TEST"
-    test_set_files = get_all_matched_files(test_set_path)
-    read_files(test_set_files)
-    test_set_phones = []
-    for file in test_set_files:
-        test_set_phones += file.get_phones()
+# save the phones into a file
+def save_phones(phones, filename):
+    with open(filename, "wb") as f:
+        pickle.dump(phones, f)
 
-    print(f"test set parse finished: {len(test_set_phones)} phones")
-
+def test_accuracy():
+    # test accuracy
     correct_num = 0
 
     # iterate all the phones in the test set
@@ -151,3 +149,16 @@ if __name__ == "__main__":
             )
     # print the accuracy
     print(f"Accuracy: {correct_num / nphones}")
+
+if __name__ == "__main__":
+    # read all the files in the training set and make them into Phone objects
+    train_set_phones = get_phones(TIMIT, "TRAIN")
+
+    # save the train_set_phones to a file
+    save_phones(train_set_phones, "train_set_phones.pkl")
+
+    # read all the files in the testing set and make them into Phone objects
+    test_set_phones = get_phones(TIMIT, "TEST")
+
+    # save the test_set_phones to a file
+    save_phones(test_set_phones, "test_set_phones.pkl")
