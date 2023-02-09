@@ -2,3 +2,7 @@
 *.pkl
 # ignore file with extension .DS_Store
 *.ds_store
+# ignore .vscode
+.vscode
+# ignore settings.json
+settings.json
