@@ -10,9 +10,10 @@ from collections import Counter
 import heapq
 from scipy.io import wavfile
 
-
 TIMIT = Path("/Users/zhuyifang/Downloads/archive")
+
 #TIMIT = Path("/home/bart/work/reed-theses/zhu-thesis/timit")
+
 
 # root should be given as the absolute path
 # return files
@@ -41,7 +42,7 @@ def read_files(files: list[File]):
 
 
 # read all the files in the training set and make them into Phone objects
-def get_phones(TIMIT_path, set_name):
+def get_phones_from_TIMIT(TIMIT_path, set_name):
     set_path = TIMIT_path / f"data/{set_name}"
     set_files = get_all_matched_files(set_path)
     read_files(set_files)
@@ -55,16 +56,43 @@ def get_phones(TIMIT_path, set_name):
 
 
 # save the phones into a file
-def save_phones(phones, filename):
+def save_phones_to_pkl(phones, filename):
     with open(filename, "wb") as f:
         pickle.dump(phones, f)
 
 
 # read phones from a file
-def read_phones(filename):
+def read_phones_from_pkl(filename):
     with open(filename, "rb") as f:
         phones = pickle.load(f)
     return phones
+
+
+def get_phones():
+    # if test_set_phones.pkl and train_set_phones.pkl are not created
+    # run the following code to create them
+    if not Path("test_set_phones.pkl").exists() or not Path(
+            "train_set_phones.pkl").exists():
+
+        # read all the files in the training set and make them into Phone objects
+        train_set_phones = get_phones_from_TIMIT(TIMIT, "TRAIN")
+
+        # save the train_set_phones to a file
+        save_phones_to_pkl(train_set_phones, "train_set_phones.pkl")
+
+        # read all the files in the testing set and make them into Phone objects
+        test_set_phones = get_phones_from_TIMIT(TIMIT, "TEST")
+
+        # save the test_set_phones to a file
+        save_phones_to_pkl(test_set_phones, "test_set_phones.pkl")
+
+    else:
+        # read the train_set_phones from a file
+        train_set_phones = read_phones_from_pkl("train_set_phones.pkl")
+
+        # read the test_set_phones from a file
+        test_set_phones = read_phones_from_pkl("test_set_phones.pkl")
+    return train_set_phones, test_set_phones
 
 
 def test_accuracy(train_set_phones, test_set_phones):
@@ -116,30 +144,6 @@ def test_accuracy(train_set_phones, test_set_phones):
 
 
 if __name__ == "__main__":
-
-    # if test_set_phones.pkl and train_set_phones.pkl are not created
-    # run the following code to create them
-    if not Path("test_set_phones.pkl").exists() or not Path(
-            "train_set_phones.pkl").exists():
-
-        # read all the files in the training set and make them into Phone objects
-        train_set_phones = get_phones(TIMIT, "TRAIN")
-
-        # save the train_set_phones to a file
-        save_phones(train_set_phones, "train_set_phones.pkl")
-
-        # read all the files in the testing set and make them into Phone objects
-        test_set_phones = get_phones(TIMIT, "TEST")
-
-        # save the test_set_phones to a file
-        save_phones(test_set_phones, "test_set_phones.pkl")
-
-    else:
-        # read the train_set_phones from a file
-        train_set_phones = read_phones("train_set_phones.pkl")
-
-        # read the test_set_phones from a file
-        test_set_phones = read_phones("test_set_phones.pkl")
-
+    train_set_phones, test_set_phones = get_phones()
     # test accuracy
     test_accuracy(train_set_phones, test_set_phones)
