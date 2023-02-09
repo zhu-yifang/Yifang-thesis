@@ -84,35 +84,44 @@ def read_files(files: list[File]):
         file.samplerate, file.wav = wavfile.read(filepath + ".WAV.wav")
     return files
 
+
 # read all the files in the training set and make them into Phone objects
 def get_phones(TIMIT_path, set_name):
     set_path = TIMIT_path / f"data/{set_name}"
-    wav_re = re.compile(r".+WAV\.wav")
     set_files = get_all_matched_files(set_path)
     read_files(set_files)
     set_phones = []
     for file in set_files:
         set_phones += file.get_phones()
-    for phone in train_set_phones:
+    for phone in set_phones:
         phone.get_mfcc_seq()
-    print(f"train set parse finished: {len(train_set_phones)} phones")
+    print(f"set parse finished: {len(set_phones)} phones")
     return set_phones
+
 
 # save the phones into a file
 def save_phones(phones, filename):
     with open(filename, "wb") as f:
         pickle.dump(phones, f)
 
-def test_accuracy():
+
+# read phones from a file
+def read_phones(filename):
+    with open(filename, "rb") as f:
+        phones = pickle.load(f)
+    return phones
+
+
+def test_accuracy(train_set_phones, test_set_phones):
     # test accuracy
     correct_num = 0
 
     # iterate all the phones in the test set
-    nphones = int(sys.argv[1])
+    # nphones = int(sys.argv[1])
+    nphones = 100
     test_phones = random.sample(test_set_phones, nphones)
-    test_set_phones in test_set_phones
-    for test_set_phone in test_phones:
-        test_set_phone.get_mfcc_seq()
+    for test_phone in test_phones:
+        test_phone.get_mfcc_seq()
         # using KNN to find the nearest neighbor
         k = 10
         # using a heap to keep track of the samllest k element
@@ -120,7 +129,7 @@ def test_accuracy():
         heap = []
         heapq.heapify(heap)
         for train_set_phone in train_set_phones:
-            distance = test_set_phone.distance_to(train_set_phone)
+            distance = test_phone.distance_to(train_set_phone)
             if len(heap) < k:
                 heapq.heappush(heap,
                                (-distance, train_set_phone.transcription))
@@ -139,26 +148,43 @@ def test_accuracy():
         predicted_phone = counter.most_common(1)[0][0]
 
         # if the prediction is correct
-        if predicted_phone == test_set_phone.transcription:
+        if predicted_phone == test_phone.transcription:
             correct_num += 1
             print("correct")
         # if the prediction is wrong
         else:
             print(
-                f'predicted phone is: {predicted_phone}, actual phone is: {phone.transcription}'
+                f'predicted phone is: {predicted_phone}, actual phone is: {test_phone.transcription}'
             )
     # print the accuracy
     print(f"Accuracy: {correct_num / nphones}")
 
+
 if __name__ == "__main__":
-    # read all the files in the training set and make them into Phone objects
-    train_set_phones = get_phones(TIMIT, "TRAIN")
 
-    # save the train_set_phones to a file
-    save_phones(train_set_phones, "train_set_phones.pkl")
+    # if test_set_phones.pkl and train_set_phones.pkl are not created
+    # run the following code to create them
+    if not Path("test_set_phones.pkl").exists() or not Path(
+            "train_set_phones.pkl").exists():
 
-    # read all the files in the testing set and make them into Phone objects
-    test_set_phones = get_phones(TIMIT, "TEST")
+        # read all the files in the training set and make them into Phone objects
+        train_set_phones = get_phones(TIMIT, "TRAIN")
 
-    # save the test_set_phones to a file
-    save_phones(test_set_phones, "test_set_phones.pkl")
+        # save the train_set_phones to a file
+        save_phones(train_set_phones, "train_set_phones.pkl")
+
+        # read all the files in the testing set and make them into Phone objects
+        test_set_phones = get_phones(TIMIT, "TEST")
+
+        # save the test_set_phones to a file
+        save_phones(test_set_phones, "test_set_phones.pkl")
+
+    else:
+        # read the train_set_phones from a file
+        train_set_phones = read_phones("train_set_phones.pkl")
+
+        # read the test_set_phones from a file
+        test_set_phones = read_phones("test_set_phones.pkl")
+
+    # test accuracy
+    test_accuracy(train_set_phones, test_set_phones)

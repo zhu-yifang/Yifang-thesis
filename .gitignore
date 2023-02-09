@@ -1,2 +1,4 @@
 # ignore file with extension .pkl
 *.pkl
+# ignore file with extension .DS_Store
+*.ds_store
