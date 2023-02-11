@@ -3,7 +3,6 @@ from recognizer.file import File
 from recognizer.phone import Phone
 import re
 import os
-import sys
 import pickle
 import random
 from collections import Counter
@@ -11,8 +10,25 @@ import heapq
 from scipy.io import wavfile
 
 TIMIT = Path("/Users/zhuyifang/Downloads/archive")
-
 #TIMIT = Path("/home/bart/work/reed-theses/zhu-thesis/timit")
+
+IGNORED_PHONES = {"h#", "#h", "sil", "pau", "epi"}
+
+GROUP_1 = {'axr', 'er'}
+GROUP_2 = {'m', 'em'}
+GROUP_3 = {'n', 'en', 'nx'}
+GROUP_4 = {'ng', 'eng'}
+GROUP_5 = {'pcl', 'p'}
+GROUP_6 = {'tcl', 't'}
+GROUP_7 = {'kcl', 'k'}
+GROUP_8 = {'bcl', 'b'}
+GROUP_9 = {'dcl', 'd'}
+GROUP_10 = {'gcl', 'g'}
+
+GROUPS = [
+    GROUP_1, GROUP_2, GROUP_3, GROUP_4, GROUP_5, GROUP_6, GROUP_7, GROUP_8,
+    GROUP_9, GROUP_10
+]
 
 
 # root should be given as the absolute path
@@ -30,7 +46,7 @@ def get_all_matched_files(root: str) -> list[File]:
 
 
 # read .wav and .PHN
-def read_files(files: list[File]):
+def read_files(files: list[File]) -> list[File]:
     for file in files:
         filepath = os.path.join(file.path, file.name)
         # read .PHN
@@ -42,7 +58,7 @@ def read_files(files: list[File]):
 
 
 # read all the files in the training set and make them into Phone objects
-def get_phones_from_TIMIT(TIMIT_path, set_name):
+def get_phones_from_TIMIT(TIMIT_path: Path, set_name: str) -> list[Phone]:
     set_path = TIMIT_path / f"data/{set_name}"
     set_files = get_all_matched_files(set_path)
     read_files(set_files)
@@ -56,19 +72,19 @@ def get_phones_from_TIMIT(TIMIT_path, set_name):
 
 
 # save the phones into a file
-def save_phones_to_pkl(phones, filename):
+def save_phones_to_pkl(phones: list[Phone], filename: str):
     with open(filename, "wb") as f:
         pickle.dump(phones, f)
 
 
 # read phones from a file
-def read_phones_from_pkl(filename):
+def read_phones_from_pkl(filename: str) -> list[Phone]:
     with open(filename, "rb") as f:
         phones = pickle.load(f)
     return phones
 
 
-def get_phones():
+def get_phones() -> tuple[list[Phone], list[Phone]]:
     # if test_set_phones.pkl and train_set_phones.pkl are not created
     # run the following code to create them
     if not Path("test_set_phones.pkl").exists() or not Path(
@@ -95,16 +111,20 @@ def get_phones():
     return train_set_phones, test_set_phones
 
 
-def test_accuracy(train_set_phones, test_set_phones):
+def drop_ignored_phones(phones: list[Phone]) -> list[Phone]:
+    return list(
+        filter(lambda phone: phone.transcription not in IGNORED_PHONES,
+               phones))
+
+
+def test_accuracy(train_set_phones: list[Phone], test_set_phones: list[Phone]):
     # test accuracy
     correct_num = 0
 
     # iterate all the phones in the test set
-    # nphones = int(sys.argv[1])
     nphones = 100
     test_phones = random.sample(test_set_phones, nphones)
     for test_phone in test_phones:
-        test_phone.get_mfcc_seq()
         # using KNN to find the nearest neighbor
         k = 10
         # using a heap to keep track of the samllest k element
@@ -123,7 +143,7 @@ def test_accuracy(train_set_phones, test_set_phones):
 
         # using Counter to get the most common phone in the heap
         counter = Counter()
-        for i in range(k):
+        for _ in range(k):
             _, transcription = heapq.heappop(heap)
             counter[transcription] += 1
 
@@ -134,16 +154,35 @@ def test_accuracy(train_set_phones, test_set_phones):
         if predicted_phone == test_phone.transcription:
             correct_num += 1
             print("correct")
-        # if the prediction is wrong
+        
+        # if the prediction and test phone are in the same group
         else:
-            print(
-                f'predicted phone is: {predicted_phone}, actual phone is: {test_phone.transcription}'
-            )
+            for i in range(len(GROUPS)):
+                if predicted_phone in GROUPS[i] and test_phone.transcription in GROUPS[i]:
+                    correct_num += 1
+                    print("correct")
+                    break
+        print(
+            f'predicted phone is: {predicted_phone}, actual phone is: {test_phone.transcription}'
+        )
     # print the accuracy
     print(f"Accuracy: {correct_num / nphones}")
 
 
 if __name__ == "__main__":
     train_set_phones, test_set_phones = get_phones()
+    train_set_phones = drop_ignored_phones(train_set_phones)
+    test_set_phones = drop_ignored_phones(test_set_phones)
+
+    # # get the number of each phone in the training set and test set
+    # train_set_counter = Counter()
+    # for phone in train_set_phones:
+    #     train_set_counter[phone.transcription] += 1
+    # print(f"The stats of the training set: {train_set_counter}")
+    # test_set_counter = Counter()
+    # for phone in test_set_phones:
+    #     test_set_counter[phone.transcription] += 1
+    # print(f"The stats of the testing set: {test_set_counter}")
+
     # test accuracy
     test_accuracy(train_set_phones, test_set_phones)
