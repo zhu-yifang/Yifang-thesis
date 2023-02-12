@@ -8,6 +8,7 @@ import random
 from collections import Counter
 import heapq
 from scipy.io import wavfile
+from sklearn.metrics import confusion_matrix
 
 TIMIT = Path("/Users/zhuyifang/Downloads/archive")
 #TIMIT = Path("/home/bart/work/reed-theses/zhu-thesis/timit")
@@ -18,17 +19,6 @@ GROUP_1 = {'axr', 'er'}
 GROUP_2 = {'m', 'em'}
 GROUP_3 = {'n', 'en', 'nx'}
 GROUP_4 = {'ng', 'eng'}
-GROUP_5 = {'pcl', 'p'}
-GROUP_6 = {'tcl', 't'}
-GROUP_7 = {'kcl', 'k'}
-GROUP_8 = {'bcl', 'b'}
-GROUP_9 = {'dcl', 'd'}
-GROUP_10 = {'gcl', 'g'}
-
-GROUPS = [
-    GROUP_1, GROUP_2, GROUP_3, GROUP_4, GROUP_5, GROUP_6, GROUP_7, GROUP_8,
-    GROUP_9, GROUP_10
-]
 
 
 # root should be given as the absolute path
@@ -117,6 +107,110 @@ def drop_ignored_phones(phones: list[Phone]) -> list[Phone]:
                phones))
 
 
+def group_phones(phones: list[Phone]) -> dict[str, set[Phone]]:
+    res = {
+        'ix': {},
+        'iy': {},
+        's': {},
+        'r': {},
+        'n/en/nx': {},
+        'l': {},
+        'tcl': {},
+        'kcl': {},
+        'ih': {},
+        'dcl': {},
+        'k': {},
+        't': {},
+        'm/em': {},
+        'eh': {},
+        'ae': {},
+        'axr/er': {},
+        'ax': {},
+        'z': {},
+        'd': {},
+        'q': {},
+        'w': {},
+        'ao': {},
+        'aa': {},
+        'dh': {},
+        'pcl': {},
+        'p': {},
+        'dx': {},
+        'f': {},
+        'b': {},
+        'ah': {},
+        'ay': {},
+        'gcl': {},
+        'ey': {},
+        'sh': {},
+        'ow': {},
+        'bcl': {},
+        'g': {},
+        'v': {},
+        'y': {},
+        'ux': {},
+        'ng/eng': {},
+        'jh': {},
+        'hv': {},
+        'hh': {},
+        'el': {},
+        'th': {},
+        'oy': {},
+        'ch': {},
+        'uh': {},
+        'aw': {},
+        'uw': {},
+        'ax-h': {},
+        'zh': {}
+    }
+
+    for phone in phones:
+        # fold the 4 groups
+        if phone.transcription in GROUP_1:
+            phone.transcription = 'axr/er'
+            res['axr/er'].add(phone)
+        elif phone.transcription in GROUP_2:
+            phone.transcription = 'm/em'
+            res['m/em'].add(phone)
+        elif phone.transcription in GROUP_3:
+            phone.transcription = 'n/en/nx'
+            res['n/en/nx'].add(phone)
+        elif phone.transcription in GROUP_4:
+            phone.transcription = 'ng/eng'
+            res['ng/eng'].add(phone)
+        else:
+            res[phone.transcription].add(phone)
+    return res
+
+
+def predict_phone(train_set_phones, test_phone):
+
+    # using KNN to find the nearest neighbor
+    k = 10
+    # using a heap to keep track of the samllest k element
+    # the items in the heap are tuples like (negative distance to the test_set_phone, train_set_phone transcription)
+    heap = []
+    heapq.heapify(heap)
+    for train_set_phone in train_set_phones:
+        distance = test_phone.distance_to(train_set_phone)
+        if len(heap) < k:
+            heapq.heappush(heap, (-distance, train_set_phone.transcription))
+        else:
+            if -heap[0][0] > distance:
+                heapq.heapreplace(heap,
+                                  (-distance, train_set_phone.transcription))
+
+    # using Counter to get the most common phone in the heap
+    counter = Counter()
+    for _ in range(k):
+        _, transcription = heapq.heappop(heap)
+        counter[transcription] += 1
+
+    # predicted_phone is the most common phone in the heap
+    predicted_phone = counter.most_common(1)[0][0]
+    return predicted_phone
+
+
 def test_accuracy(train_set_phones: list[Phone], test_set_phones: list[Phone]):
     # test accuracy
     correct_num = 0
@@ -124,41 +218,19 @@ def test_accuracy(train_set_phones: list[Phone], test_set_phones: list[Phone]):
     # iterate all the phones in the test set
     nphones = 100
     test_phones = random.sample(test_set_phones, nphones)
+
+    predicted_phone = predict_phone(train_set_phones, test_phones)
     for test_phone in test_phones:
-        # using KNN to find the nearest neighbor
-        k = 10
-        # using a heap to keep track of the samllest k element
-        # the items in the heap are tuples like (negative distance to the test_set_phone, train_set_phone transcription)
-        heap = []
-        heapq.heapify(heap)
-        for train_set_phone in train_set_phones:
-            distance = test_phone.distance_to(train_set_phone)
-            if len(heap) < k:
-                heapq.heappush(heap,
-                               (-distance, train_set_phone.transcription))
-            else:
-                if -heap[0][0] > distance:
-                    heapq.heapreplace(
-                        heap, (-distance, train_set_phone.transcription))
-
-        # using Counter to get the most common phone in the heap
-        counter = Counter()
-        for _ in range(k):
-            _, transcription = heapq.heappop(heap)
-            counter[transcription] += 1
-
-        # predicted_phone is the most common phone in the heap
-        predicted_phone = counter.most_common(1)[0][0]
-
         # if the prediction is correct
         if predicted_phone == test_phone.transcription:
             correct_num += 1
             print("correct")
-        
+
         # if the prediction and test phone are in the same group
         else:
             for i in range(len(GROUPS)):
-                if predicted_phone in GROUPS[i] and test_phone.transcription in GROUPS[i]:
+                if predicted_phone in GROUPS[
+                        i] and test_phone.transcription in GROUPS[i]:
                     correct_num += 1
                     print("correct")
                     break
@@ -173,6 +245,7 @@ if __name__ == "__main__":
     train_set_phones, test_set_phones = get_phones()
     train_set_phones = drop_ignored_phones(train_set_phones)
     test_set_phones = drop_ignored_phones(test_set_phones)
+    test_phones = group_phones(test_set_phones)
 
     # # get the number of each phone in the training set and test set
     # train_set_counter = Counter()
@@ -186,3 +259,12 @@ if __name__ == "__main__":
 
     # test accuracy
     test_accuracy(train_set_phones, test_set_phones)
+
+    # confusion matrix test
+    labels = [
+        'ix', 'iy', 's', 'r', 'n/en/nx', 'l', 'tcl', 'kcl', 'ih', 'dcl', 'k',
+        't', 'm/em', 'eh', 'ae', 'axr/er', 'ax', 'z', 'd', 'q', 'w', 'ao',
+        'aa', 'dh', 'pcl', 'p', 'dx', 'f', 'b', 'ah', 'ay', 'gcl', 'ey', 'sh',
+        'ow', 'bcl', 'g', 'v', 'y', 'ux', 'ng/eng', 'jh', 'hv', 'hh', 'el',
+        'th', 'oy', 'ch', 'uh', 'aw', 'uw', 'ax-h', 'zh'
+    ]

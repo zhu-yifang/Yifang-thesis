@@ -20,3 +20,4 @@ class Phone():
 
     def distance_to(self, other: "Phone"):
         return dtw(self.mfcc_seq, other.mfcc_seq)
+
