@@ -10,6 +10,7 @@ import heapq
 from scipy.io import wavfile
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
+import numpy as np
 
 TIMIT = Path("/Users/zhuyifang/Downloads/archive")
 #TIMIT = Path("/home/bart/work/reed-theses/zhu-thesis/timit")
@@ -260,7 +261,13 @@ if __name__ == "__main__":
         'ow', 'bcl', 'g', 'v', 'y', 'ux', 'ng/eng', 'jh', 'hv', 'hh', 'el',
         'th', 'oy', 'ch', 'uh', 'aw', 'uw', 'ax-h', 'zh'
     ]
-    cm_display = ConfusionMatrixDisplay(confusion_matrix(true_lst, pred_lst),
-                                        display_labels=labels)
-    cm_display.plot()
+    cm = confusion_matrix(true_lst, pred_lst, labels=labels)
+    # write the confusion matrix to a file
+    np.set_printoptions(threshold=np.inf)
+    with open('confusion_matrix.txt', 'w') as f:
+        f.write(str(cm))
+    cm_display = ConfusionMatrixDisplay(cm, display_labels=labels)
+    fig, ax = plt.subplots(figsize=(10, 7))
+    cm_display.plot(ax=ax, xticks_rotation=90)
+    plt.tight_layout()
     plt.show()
