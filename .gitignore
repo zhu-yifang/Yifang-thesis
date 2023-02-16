@@ -6,3 +6,6 @@
 .vscode
 # ignore __pycache__
 __pycache__
+# ignore .png and .txt
+.png
+.txt

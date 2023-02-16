@@ -241,7 +241,7 @@ if __name__ == "__main__":
     train_phones = group_phones(train_set_phones)
     test_set_phones = drop_ignored_phones(test_set_phones)
     test_phones = group_phones(test_set_phones)
-    test_phones = get_n_from_each_group(test_phones, 1)
+    test_phones = get_n_from_each_group(test_phones, 50)
 
     # # get the number of each phone in the training set and test set
     # train_set_counter = Counter()
