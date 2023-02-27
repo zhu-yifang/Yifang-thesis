@@ -1,5 +1,6 @@
 from python_speech_features import mfcc
 from tslearn.metrics import dtw
+import numpy as np
 
 
 class Phone():
@@ -18,6 +19,10 @@ class Phone():
         self.mfcc_seq = mfcc(self.data, self.samplerate)
         return self.mfcc_seq
 
-    def distance_to(self, other: "Phone"):
+    # get the DTW distance between two phones
+    def dtw_distance_to(self, other: "Phone"):
         return dtw(self.mfcc_seq, other.mfcc_seq)
 
+    # get the Euclidean distance between two phones
+    def distance_to(self, other: "Phone"):
+        return np.linalg.norm(self.mfcc_seq - other.mfcc_seq)
