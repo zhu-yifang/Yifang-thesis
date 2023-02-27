@@ -53,6 +53,7 @@ def read_files(files: list[File]) -> list[File]:
 def get_phones_from_TIMIT(TIMIT_path: Path, set_name: str) -> list[Phone]:
     set_path = TIMIT_path / f"data/{set_name}"
     set_files = get_all_matched_files(set_path)
+    print(f"set parse started: {len(set_files)} files")
     read_files(set_files)
     set_phones = []
     for file in set_files:
@@ -243,7 +244,7 @@ if __name__ == "__main__":
     test_phones = group_phones(test_set_phones)
     test_phones = get_n_from_each_group(test_phones, 50)
 
-    # # get the number of each phone in the training set and test set
+    # get the number of each phone in the training set and test set
     # train_set_counter = Counter()
     # for phone in train_set_phones:
     #     train_set_counter[phone.transcription] += 1
