@@ -12,6 +12,7 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
 import numpy as np
 import librosa
+import csv
 
 TIMIT = Path("/Users/zhuyifang/Downloads/archive")
 #TIMIT = Path("/home/bart/work/reed-theses/zhu-thesis/timit")
@@ -205,7 +206,7 @@ def predict_phone(train_set_phones: list[Phone], test_phone: Phone) -> str:
     heap = []
     heapq.heapify(heap)
     for train_set_phone in train_set_phones:
-        distance = test_phone.distance_to(train_set_phone)
+        distance = test_phone.dtw_distance_to(train_set_phone)
         if len(heap) < k:
             heapq.heappush(heap, (-distance, train_set_phone.transcription))
         else:
@@ -225,39 +226,34 @@ def predict_phone(train_set_phones: list[Phone], test_phone: Phone) -> str:
 
 
 def test(train_set_phones: list[Phone], test_phones: list[Phone]):
-    true_lst = []
-    pred_lst = []
-    correct_num = 0
-    for test_phone in test_phones:
-        print(f"Predicting {test_phone.transcription}...")
-        predicted_phone = predict_phone(train_set_phones, test_phone)
-        print(f"Predicted {predicted_phone}")
-        if predicted_phone == test_phone.transcription:
-            correct_num += 1
-        true_lst.append(test_phone.transcription)
-        pred_lst.append(predicted_phone)
-    print(f"The accuracy is {correct_num / len(test_phones)}")
-    return true_lst, pred_lst
+    with open('test_result.csv', 'w') as f:
+        writer = csv.writer(f)
+        writer.writerow(['True phone', 'Predicted phone'])
+        correct_num = 0
+        for test_phone in test_phones:
+            print(f"Predicting {test_phone.transcription}...")
+            predicted_phone = predict_phone(train_set_phones, test_phone)
+            print(f"Predicted {predicted_phone}")
+            if predicted_phone == test_phone.transcription:
+                correct_num += 1
+            writer.writerow([test_phone.transcription, predicted_phone])
+        print(f"The accuracy is {correct_num / len(test_phones)}")
+
+
+# stretch the phones to 1200 samples long
+def stretch_phones(phones: list[Phone]):
+    for phone in phones:
+        phone.data = librosa.effects.time_stretch(phone.data,
+                                                  rate=(len(phone.data) /
+                                                        1200),
+                                                  n_fft=512)
 
 
 if __name__ == "__main__":
-    train_set_phones, test_set_phones = get_phones()
-    train_set_phones = drop_ignored_phones(train_set_phones)
-    # train_phones = group_phones(train_set_phones)
-    test_set_phones = drop_ignored_phones(test_set_phones)
-    # test_phones = group_phones(test_set_phones)
-    # test_phones = get_n_from_each_group(test_phones, 50)
-
-    # get the number of each phone in the training set and test set
-    # train_set_counter = Counter()
-    # for phone in train_set_phones:
-    #     train_set_counter[phone.transcription] += 1
-    # print(f"The stats of the training set: {train_set_counter}")
-    # test_set_counter = Counter()
-    # for phone in test_set_phones:
-    #     test_set_counter[phone.transcription] += 1
-    # print(f"The stats of the testing set: {test_set_counter}")
-    # true_lst, pred_lst = test(train_set_phones, test_phones)
+    train_set_phones = read_phones_from_pkl("stretched_train_set_phones.pkl")
+    test_set_phones = read_phones_from_pkl("stretched_test_set_phones.pkl")
+    test_set = random.sample(test_set_phones, 1000)
+    test(train_set_phones, test_set)
     # confusion matrix test
     labels = [
         'ix', 'iy', 's', 'r', 'n/en/nx', 'l', 'tcl', 'kcl', 'ih', 'dcl', 'k',
@@ -266,13 +262,3 @@ if __name__ == "__main__":
         'ow', 'bcl', 'g', 'v', 'y', 'ux', 'ng/eng', 'jh', 'hv', 'hh', 'el',
         'th', 'oy', 'ch', 'uh', 'aw', 'uw', 'ax-h', 'zh'
     ]
-    # cm = confusion_matrix(true_lst, pred_lst, labels=labels)
-    # write the confusion matrix to a file
-    # np.set_printoptions(threshold=np.inf)
-    # with open('confusion_matrix.txt', 'w') as f:
-    #     f.write(str(cm))
-    # cm_display = ConfusionMatrixDisplay(cm, display_labels=labels)
-    # fig, ax = plt.subplots(figsize=(10, 7))
-    # cm_display.plot(ax=ax, xticks_rotation=90)
-    # plt.tight_layout()
-    # plt.show()
