@@ -243,7 +243,7 @@ def stretch_phones(phones: list[Phone]):
         phone.data = librosa.effects.time_stretch(
             phone.data,
             rate=(len(phone.data) / 1200),
-            n_fft=4096,
+            n_fft=8192,
         )
         assert len(phone.data) == 1200, "incorrect phone resize"
 
@@ -251,6 +251,13 @@ def stretch_phones(phones: list[Phone]):
 if __name__ == "__main__":
     namer = lambda t: f"stretched_{t}_set_phones.pkl"
     train_set_phones, test_set_phones = get_phones(namer)
+    train_set_phones = drop_ignored_phones(train_set_phones)
+    test_set_phones = drop_ignored_phones(test_set_phones)
+
+    phone_lens = [len(p.data) for p in train_set_phones + test_set_phones]
+    print(f"max phone len: {max(*phone_lens)}")
+    print(f"avg phone len: {sum(phone_lens) / len(phone_lens)}")
+
     test_set = random.sample(test_set_phones, 1000)
     test(train_set_phones, test_set)
     # confusion matrix test
