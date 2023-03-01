@@ -240,10 +240,12 @@ def test(train_set_phones: list[Phone], test_phones: list[Phone]):
 # stretch the phones to 1200 samples long
 def stretch_phones(phones: list[Phone]):
     for phone in phones:
-        phone.data = librosa.effects.time_stretch(phone.data,
-                                                  rate=(len(phone.data) /
-                                                        1200),
-                                                  n_fft=512)
+        phone.data = librosa.effects.time_stretch(
+            phone.data,
+            rate=(len(phone.data) / 1200),
+            n_fft=4096,
+        )
+        assert len(phone.data) == 1200, "incorrect phone resize"
 
 
 if __name__ == "__main__":
