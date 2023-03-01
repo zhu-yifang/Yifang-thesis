@@ -15,7 +15,8 @@ import librosa
 import csv
 
 TIMIT = Path("/Users/zhuyifang/Downloads/archive")
-#TIMIT = Path("/home/bart/work/reed-theses/zhu-thesis/timit")
+if "TIMIT" in os.environ:
+    TIMIT = os.environ["TIMIT"]
 
 IGNORED_PHONES = {"h#", "#h", "sil", "pau", "epi"}
 
