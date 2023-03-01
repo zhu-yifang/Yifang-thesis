@@ -90,16 +90,17 @@ def get_phones(namer) -> tuple[list[Phone], list[Phone]]:
     # run the following code to create them
     tt_phones = []
     for pkl in pkls:
-        if not pkl[0].exists():
+        pkl_path, timit_dir = pkl
+        if not pkl_path.exists():
             # read all the files in the phone set and make them into Phone objects
-            phones = get_phones_from_TIMIT(TIMIT, pkl[1])
+            phones = get_phones_from_TIMIT(TIMIT, timit_dir)
 
             # save the phones to a pkl file
-            save_phones_to_pkl(phones, pkl[0])
+            save_phones_to_pkl(phones, pkl_path)
             tt_phones.append(phones)
         else:
             # read the train_set_phones from a file
-            phones = read_phones_from_pkl(pkl[0])
+            phones = read_phones_from_pkl(pkl_path)
             tt_phones.append(phones)
     return tuple(tt_phones)
 
