@@ -206,7 +206,7 @@ def predict_phone(train_set_phones: list[Phone], test_phone: Phone) -> str:
     heap = []
     heapq.heapify(heap)
     for train_set_phone in train_set_phones:
-        distance = test_phone.dtw_distance_to(train_set_phone)
+        distance = test_phone.distance_to(train_set_phone)
         if len(heap) < k:
             heapq.heappush(heap, (-distance, train_set_phone.transcription))
         else:
@@ -250,9 +250,12 @@ def stretch_phones(phones: list[Phone]):
 
 
 if __name__ == "__main__":
-    train_set_phones = read_phones_from_pkl("stretched_train_set_phones.pkl")
-    test_set_phones = read_phones_from_pkl("stretched_test_set_phones.pkl")
-    test_set = random.sample(test_set_phones, 1000)
+    train_set_phones = read_phones_from_pkl("train_set_phones.pkl")
+    test_set_phones = read_phones_from_pkl("test_set_phones.pkl")
+    # drop the ignored phones
+    train_set_phones = drop_ignored_phones(train_set_phones)
+    test_set_phones = drop_ignored_phones(test_set_phones)
+    test_set = random.sample(test_set_phones, 50)
     test(train_set_phones, test_set)
     # confusion matrix test
     labels = [
