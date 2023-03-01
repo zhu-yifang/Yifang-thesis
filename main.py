@@ -203,7 +203,7 @@ def predict_phone(train_set_phones: list[Phone], test_phone: Phone) -> str:
     heap = []
     heapq.heapify(heap)
     for train_set_phone in train_set_phones:
-        distance = test_phone.distance_to(train_set_phone)
+        distance = test_phone.dtw_distance_to(train_set_phone)
         if len(heap) < k:
             heapq.heappush(heap, (-distance, train_set_phone.transcription))
         else:
