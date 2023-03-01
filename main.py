@@ -16,7 +16,7 @@ import csv
 
 TIMIT = Path("/Users/zhuyifang/Downloads/archive")
 if "TIMIT" in os.environ:
-    TIMIT = os.environ["TIMIT"]
+    TIMIT = Path(os.environ["TIMIT"])
 
 IGNORED_PHONES = {"h#", "#h", "sil", "pau", "epi"}
 
@@ -81,32 +81,27 @@ def read_phones_from_pkl(filename: str) -> list[Phone]:
     return phones
 
 
-def get_phones() -> tuple[list[Phone], list[Phone]]:
+def get_phones(namer) -> tuple[list[Phone], list[Phone]]:
+    pkls = (
+        (Path(namer("train")), "TRAIN"),
+        (Path(namer("test")), "TEST"),
+    )
     # if test_set_phones.pkl and train_set_phones.pkl are not created
     # run the following code to create them
-    if not Path("test_set_phones.pkl").exists() or not Path(
-            "train_set_phones.pkl").exists():
+    tt_phones = []
+    for pkl in pkls:
+        if not pkl[0].exists():
+            # read all the files in the phone set and make them into Phone objects
+            phones = get_phones_from_TIMIT(TIMIT, pkl[1])
 
-        # read all the files in the training set and make them into Phone objects
-        train_set_phones = get_phones_from_TIMIT(TIMIT, "TRAIN")
-
-        # save the train_set_phones to a file
-        save_phones_to_pkl(train_set_phones, "train_set_phones.pkl")
-
-        # read all the files in the testing set and make them into Phone objects
-        test_set_phones = get_phones_from_TIMIT(TIMIT, "TEST")
-
-        # save the test_set_phones to a file
-        save_phones_to_pkl(test_set_phones, "test_set_phones.pkl")
-
-    else:
-        # read the train_set_phones from a file
-        train_set_phones = read_phones_from_pkl("train_set_phones.pkl")
-
-        # read the test_set_phones from a file
-        test_set_phones = read_phones_from_pkl("test_set_phones.pkl")
-    return train_set_phones, test_set_phones
-
+            # save the phones to a pkl file
+            save_phones_to_pkl(phones, pkl[0])
+            tt_phones.append(phones)
+        else:
+            # read the train_set_phones from a file
+            phones = read_phones_from_pkl(pkl[0])
+            tt_phones.append(phones)
+    return tuple(tt_phones)
 
 def drop_ignored_phones(phones: list[Phone]) -> list[Phone]:
     return list(
@@ -251,12 +246,9 @@ def stretch_phones(phones: list[Phone]):
 
 
 if __name__ == "__main__":
-    train_set_phones = read_phones_from_pkl("train_set_phones.pkl")
-    test_set_phones = read_phones_from_pkl("test_set_phones.pkl")
-    # drop the ignored phones
-    train_set_phones = drop_ignored_phones(train_set_phones)
-    test_set_phones = drop_ignored_phones(test_set_phones)
-    test_set = random.sample(test_set_phones, 50)
+    namer = lambda t: f"stretched_{t}_set_phones.pkl"
+    train_set_phones, test_set_phones = get_phones(namer)
+    test_set = random.sample(test_set_phones, 1000)
     test(train_set_phones, test_set)
     # confusion matrix test
     labels = [
