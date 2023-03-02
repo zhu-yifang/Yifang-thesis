@@ -303,6 +303,8 @@ if __name__ == "__main__":
     if args.stretch and not pkld:
         stretch_phones(train_set_phones)
         stretch_phones(test_set_phones)
+        for phone in train_set_phones + test_set_phones:
+            phone.get_mfcc_seq()
         save_phones_to_pkl(train_set_phones, namer("train"))
         save_phones_to_pkl(test_set_phones, namer("test"))
 
