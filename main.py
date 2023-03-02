@@ -14,6 +14,7 @@ import numpy as np
 import librosa
 import csv
 import argparse
+from collections.abc import Callable
 
 parser = argparse.ArgumentParser(
     prog = 'phonerec',
@@ -94,7 +95,6 @@ def save_phones_to_pkl(phones: list[Phone], filename: str):
     with open(filename, "wb") as f:
         pickle.dump(phones, f)
 
-
 # read phones from a file
 def read_phones_from_pkl(filename: str) -> list[Phone]:
     with open(filename, "rb") as f:
@@ -102,7 +102,8 @@ def read_phones_from_pkl(filename: str) -> list[Phone]:
     return phones
 
 
-def get_phones(namer) -> tuple[list[Phone], list[Phone]]:
+def get_phones(namer: Callable[[str], str], do_pkl=None) -> tuple[list[Phone], list[Phone], bool]:
+    assert do_pkl is not None, "get_phones: pkl required"
     pkls = (
         (Path(namer("train")), "TRAIN"),
         (Path(namer("test")), "TEST"),
@@ -110,6 +111,7 @@ def get_phones(namer) -> tuple[list[Phone], list[Phone]]:
     # if test_set_phones.pkl and train_set_phones.pkl are not created
     # run the following code to create them
     tt_phones = []
+    pkled = False
     for pkl in pkls:
         pkl_path, timit_dir = pkl
         if not pkl_path.exists():
@@ -117,13 +119,16 @@ def get_phones(namer) -> tuple[list[Phone], list[Phone]]:
             phones = get_phones_from_TIMIT(TIMIT, timit_dir)
 
             # save the phones to a pkl file
-            save_phones_to_pkl(phones, pkl_path)
+            if do_pkl:
+                save_phones_to_pkl(phones, pkl_path)
+
             tt_phones.append(phones)
         else:
             # read the train_set_phones from a file
             phones = read_phones_from_pkl(pkl_path)
             tt_phones.append(phones)
-    return tuple(tt_phones)
+            pkled = True
+    return (*tt_phones, pkled)
 
 def drop_ignored_phones(phones: list[Phone]) -> list[Phone]:
     return list(
@@ -276,20 +281,30 @@ def stretch_phones(phones: list[Phone]):
         )
         assert len(phone.data) == 1024, "incorrect phone resize"
 
-
-if __name__ == "__main__":
-    namer = lambda t: f"stretched_{t}_set_phones.pkl"
-    train_set_phones, test_set_phones = get_phones(namer)
-    train_set_phones = drop_ignored_phones(train_set_phones)
-    test_set_phones = drop_ignored_phones(test_set_phones)
-
+def report_stats(phones):
     if args.verbose:
-        phone_lens = [len(p.data) for p in train_set_phones + test_set_phones]
+        phone_lens = [len(p.data) for p in phones]
         pls = [min(phone_lens), sum(phone_lens) / len(phone_lens), max(phone_lens)]
         print(f"phone lens: min={pls[0]} avg={pls[1]} max={pls[2]}")
 
+if __name__ == "__main__":
     if args.stretch:
+        namer = lambda t: f"stretched_{t}_set_phones.pkl"
+        train_set_phones, test_set_phones, pkld = get_phones(namer, do_pkl=False)
+    else:
+        namer = lambda t: f"raw_{t}_set_phones.pkl"
+        train_set_phones, test_set_phones, pkld = get_phones(namer, do_pkl=True)
+
+    train_set_phones = drop_ignored_phones(train_set_phones)
+    test_set_phones = drop_ignored_phones(test_set_phones)
+
+    report_stats(train_set_phones + test_set_phones)
+
+    if args.stretch and not pkld:
         stretch_phones(train_set_phones)
+        stretch_phones(test_set_phones)
+        save_phones_to_pkl(train_set_phones, namer("train"))
+        save_phones_to_pkl(test_set_phones, namer("test"))
 
     test_set = random.sample(test_set_phones, 1000)
     if args.stretch:
