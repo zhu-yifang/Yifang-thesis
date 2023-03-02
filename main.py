@@ -13,6 +13,27 @@ import matplotlib.pyplot as plt
 import numpy as np
 import librosa
 import csv
+import argparse
+
+parser = argparse.ArgumentParser(
+    prog = 'phonerec',
+    description = 'segmented phone recognizer',
+)
+parser.add_argument(
+    '-s',
+    '--stretch',
+    action = "store_true",
+)
+parser.add_argument(
+    '-d',
+    '--distance',
+    default = "dtw",
+)
+parser.add_argument(
+    '--verbose',
+    action = "store_true",
+)
+args = parser.parse_args()
 
 TIMIT = Path("/Users/zhuyifang/Downloads/archive")
 if "TIMIT" in os.environ:
@@ -202,8 +223,16 @@ def predict_phone(train_set_phones: list[Phone], test_phone: Phone) -> str:
     # the items in the heap are tuples like (negative distance to the test_set_phone, train_set_phone transcription)
     heap = []
     heapq.heapify(heap)
+
+    if args.distance == "dtw":
+        metric_distance = lambda p1, p2: p1.dtw_distance_to(p2)
+    elif args.distance == "euclid":
+        metric_distance = lambda p1, p2: p1.distance_to(p2)
+    else:
+        assert False, f"unknown distance metric: {args.distance}"
+
     for train_set_phone in train_set_phones:
-        distance = test_phone.dtw_distance_to(train_set_phone)
+        distance = metric_distance(test_phone, train_set_phone)
         if len(heap) < k:
             heapq.heappush(heap, (-distance, train_set_phone.transcription))
         else:
@@ -237,15 +266,15 @@ def test(train_set_phones: list[Phone], test_phones: list[Phone]):
         print(f"The accuracy is {correct_num / len(test_phones)}")
 
 
-# stretch the phones to 1200 samples long
+# stretch the phones to 1024 samples long
 def stretch_phones(phones: list[Phone]):
     for phone in phones:
         phone.data = librosa.effects.time_stretch(
             phone.data,
-            rate=(len(phone.data) / 1200),
-            n_fft=8192,
+            rate=(len(phone.data) / 1024),
+            n_fft=512,
         )
-        assert len(phone.data) == 1200, "incorrect phone resize"
+        assert len(phone.data) == 1024, "incorrect phone resize"
 
 
 if __name__ == "__main__":
@@ -254,11 +283,17 @@ if __name__ == "__main__":
     train_set_phones = drop_ignored_phones(train_set_phones)
     test_set_phones = drop_ignored_phones(test_set_phones)
 
-    phone_lens = [len(p.data) for p in train_set_phones + test_set_phones]
-    print(f"max phone len: {max(*phone_lens)}")
-    print(f"avg phone len: {sum(phone_lens) / len(phone_lens)}")
+    if args.verbose:
+        phone_lens = [len(p.data) for p in train_set_phones + test_set_phones]
+        pls = [min(phone_lens), sum(phone_lens) / len(phone_lens), max(phone_lens)]
+        print(f"phone lens: min={pls[0]} avg={pls[1]} max={pls[2]}")
+
+    if args.stretch:
+        stretch_phones(train_set_phones)
 
     test_set = random.sample(test_set_phones, 1000)
+    if args.stretch:
+        stretch_phones(test_set)
     test(train_set_phones, test_set)
     # confusion matrix test
     labels = [
