@@ -13,6 +13,28 @@ import matplotlib.pyplot as plt
 import numpy as np
 import librosa
 import csv
+import argparse
+from collections.abc import Callable
+
+parser = argparse.ArgumentParser(
+    prog = 'phonerec',
+    description = 'segmented phone recognizer',
+)
+parser.add_argument(
+    '-s',
+    '--stretch',
+    action = "store_true",
+)
+parser.add_argument(
+    '-d',
+    '--distance',
+    default = "dtw",
+)
+parser.add_argument(
+    '--verbose',
+    action = "store_true",
+)
+args = parser.parse_args()
 
 TIMIT = Path("/Users/zhuyifang/Downloads/archive")
 if "TIMIT" in os.environ:
@@ -73,7 +95,6 @@ def save_phones_to_pkl(phones: list[Phone], filename: str):
     with open(filename, "wb") as f:
         pickle.dump(phones, f)
 
-
 # read phones from a file
 def read_phones_from_pkl(filename: str) -> list[Phone]:
     with open(filename, "rb") as f:
@@ -81,7 +102,8 @@ def read_phones_from_pkl(filename: str) -> list[Phone]:
     return phones
 
 
-def get_phones(namer) -> tuple[list[Phone], list[Phone]]:
+def get_phones(namer: Callable[[str], str], do_pkl=None) -> tuple[list[Phone], list[Phone], bool]:
+    assert do_pkl is not None, "get_phones: pkl required"
     pkls = (
         (Path(namer("train")), "TRAIN"),
         (Path(namer("test")), "TEST"),
@@ -89,19 +111,24 @@ def get_phones(namer) -> tuple[list[Phone], list[Phone]]:
     # if test_set_phones.pkl and train_set_phones.pkl are not created
     # run the following code to create them
     tt_phones = []
+    pkled = False
     for pkl in pkls:
-        if not pkl[0].exists():
+        pkl_path, timit_dir = pkl
+        if not pkl_path.exists():
             # read all the files in the phone set and make them into Phone objects
-            phones = get_phones_from_TIMIT(TIMIT, pkl[1])
+            phones = get_phones_from_TIMIT(TIMIT, timit_dir)
 
             # save the phones to a pkl file
-            save_phones_to_pkl(phones, pkl[0])
+            if do_pkl:
+                save_phones_to_pkl(phones, pkl_path)
+
             tt_phones.append(phones)
         else:
             # read the train_set_phones from a file
-            phones = read_phones_from_pkl(pkl[0])
+            phones = read_phones_from_pkl(pkl_path)
             tt_phones.append(phones)
-    return tuple(tt_phones)
+            pkled = True
+    return (*tt_phones, pkled)
 
 def drop_ignored_phones(phones: list[Phone]) -> list[Phone]:
     return list(
@@ -201,8 +228,16 @@ def predict_phone(train_set_phones: list[Phone], test_phone: Phone) -> str:
     # the items in the heap are tuples like (negative distance to the test_set_phone, train_set_phone transcription)
     heap = []
     heapq.heapify(heap)
+
+    if args.distance == "dtw":
+        metric_distance = lambda p1, p2: p1.dtw_distance_to(p2)
+    elif args.distance == "euclid":
+        metric_distance = lambda p1, p2: p1.distance_to(p2)
+    else:
+        assert False, f"unknown distance metric: {args.distance}"
+
     for train_set_phone in train_set_phones:
-        distance = test_phone.distance_to(train_set_phone)
+        distance = metric_distance(test_phone, train_set_phone)
         if len(heap) < k:
             heapq.heappush(heap, (-distance, train_set_phone.transcription))
         else:
@@ -236,19 +271,46 @@ def test(train_set_phones: list[Phone], test_phones: list[Phone]):
         print(f"The accuracy is {correct_num / len(test_phones)}")
 
 
-# stretch the phones to 1200 samples long
+# stretch the phones to 1024 samples long
 def stretch_phones(phones: list[Phone]):
     for phone in phones:
-        phone.data = librosa.effects.time_stretch(phone.data,
-                                                  rate=(len(phone.data) /
-                                                        1200),
-                                                  n_fft=512)
+        phone.data = librosa.effects.time_stretch(
+            phone.data,
+            rate=(len(phone.data) / 1024),
+            n_fft=512,
+        )
+        assert len(phone.data) == 1024, "incorrect phone resize"
 
+def report_stats(phones):
+    if args.verbose:
+        phone_lens = [len(p.data) for p in phones]
+        pls = [min(phone_lens), sum(phone_lens) / len(phone_lens), max(phone_lens)]
+        print(f"phone lens: min={pls[0]} avg={pls[1]} max={pls[2]}")
 
 if __name__ == "__main__":
-    namer = lambda t: f"stretched_{t}_set_phones.pkl"
-    train_set_phones, test_set_phones = get_phones(namer)
+    if args.stretch:
+        namer = lambda t: f"stretched_{t}_set_phones.pkl"
+        train_set_phones, test_set_phones, pkld = get_phones(namer, do_pkl=False)
+    else:
+        namer = lambda t: f"raw_{t}_set_phones.pkl"
+        train_set_phones, test_set_phones, pkld = get_phones(namer, do_pkl=True)
+
+    train_set_phones = drop_ignored_phones(train_set_phones)
+    test_set_phones = drop_ignored_phones(test_set_phones)
+
+    report_stats(train_set_phones + test_set_phones)
+
+    if args.stretch and not pkld:
+        stretch_phones(train_set_phones)
+        stretch_phones(test_set_phones)
+        for phone in train_set_phones + test_set_phones:
+            phone.get_mfcc_seq()
+        save_phones_to_pkl(train_set_phones, namer("train"))
+        save_phones_to_pkl(test_set_phones, namer("test"))
+
     test_set = random.sample(test_set_phones, 1000)
+    if args.stretch:
+        stretch_phones(test_set)
     test(train_set_phones, test_set)
     # confusion matrix test
     labels = [
