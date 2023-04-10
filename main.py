@@ -10,6 +10,7 @@ import heapq
 from scipy.io import wavfile
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from sklearn.model_selection import GridSearchCV
+from sklearn.neighbors import KNeighborsClassifier
 import matplotlib.pyplot as plt
 import numpy as np
 import librosa
@@ -324,6 +325,7 @@ if __name__ == "__main__":
     if args.stretch:
         stretch_phones(test_set)
     test(train_set_phones, test_set)
+
     # confusion matrix test
     labels = [
         'ix', 'iy', 's', 'r', 'n/en/nx', 'l', 'tcl', 'kcl', 'ih', 'dcl', 'k',
