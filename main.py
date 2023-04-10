@@ -257,23 +257,42 @@ def predict_phone(train_set_phones: list[Phone],
         counter[transcription] += 1
 
     # predicted_phone is the most common phone in the heap
-    predicted_phone = counter.most_common(5)
-    return predicted_phone
+    predicted_phones = counter.most_common(5)
+    return predicted_phones
 
 
 def test(train_set_phones: list[Phone], test_phones: list[Phone]):
     with open('test_result.csv', 'w') as f:
-        writer = csv.writer(f)
-        writer.writerow(['True phone', 'Predicted phone'])
-        correct_num = 0
-        for test_phone in test_phones:
-            print(f"Predicting {test_phone.transcription}...")
-            predicted_phone = predict_phone(train_set_phones, test_phone)
-            print(f"Predicted {predicted_phone}")
-            if test_phone.transcription in [p[0] for p in predicted_phone]:
-                correct_num += 1
-            writer.writerow([test_phone.transcription, predicted_phone])
-        print(f"The accuracy is {correct_num / len(test_phones)}")
+        scale = 1
+        while scale > 0:
+            train_phones = random.sample(train_set_phones,
+                                         int(len(train_set_phones) * scale))
+            writer = csv.writer(f)
+            writer.writerow([f"Scale: {scale}"])
+            writer.writerow([
+                'True phone', '1st predicted phone', '2nd predicted phone',
+                '3rd predicted phone', '4th predicted phone',
+                '5th predicted phone'
+            ])
+            correct_num = 0
+            for test_phone in test_phones:
+                # print(f"Predicting {test_phone.transcription}...")
+                predicted_phones = predict_phone(train_phones, test_phone)
+                # print(f"Predicted {predicted_phones}")
+                if test_phone.transcription in [
+                        p[0] for p in predicted_phones
+                ]:
+                    correct_num += 1
+                if len(predicted_phones) < 5:
+                    predicted_phones += [('None', 0)] * (5 -
+                                                        len(predicted_phones))
+                writer.writerow([
+                    test_phone.transcription, predicted_phones[0][0],
+                    predicted_phones[1][0], predicted_phones[2][0],
+                    predicted_phones[3][0], predicted_phones[4][0]
+                ])
+            print(f"The accuracy is {correct_num / len(test_phones)}")
+            scale -= 0.1
 
 
 # stretch the phones to 1024 samples long
