@@ -224,7 +224,8 @@ def get_n_from_each_group(phone_groups: dict[str, list[Phone]],
     return res
 
 
-def predict_phone(train_set_phones: list[Phone], test_phone: Phone) -> str:
+def predict_phone(train_set_phones: list[Phone],
+                  test_phone: Phone) -> list[tuple[str, int]]:
 
     # using KNN to find the nearest neighbor
     k = 100
@@ -256,7 +257,7 @@ def predict_phone(train_set_phones: list[Phone], test_phone: Phone) -> str:
         counter[transcription] += 1
 
     # predicted_phone is the most common phone in the heap
-    predicted_phone = counter.most_common(1)[0][0]
+    predicted_phone = counter.most_common(5)
     return predicted_phone
 
 
@@ -269,7 +270,7 @@ def test(train_set_phones: list[Phone], test_phones: list[Phone]):
             print(f"Predicting {test_phone.transcription}...")
             predicted_phone = predict_phone(train_set_phones, test_phone)
             print(f"Predicted {predicted_phone}")
-            if predicted_phone == test_phone.transcription:
+            if test_phone.transcription in [p[0] for p in predicted_phone]:
                 correct_num += 1
             writer.writerow([test_phone.transcription, predicted_phone])
         print(f"The accuracy is {correct_num / len(test_phones)}")
