@@ -9,6 +9,7 @@ from collections import Counter
 import heapq
 from scipy.io import wavfile
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+from sklearn.model_selection import GridSearchCV
 import matplotlib.pyplot as plt
 import numpy as np
 import librosa
@@ -17,22 +18,22 @@ import argparse
 from collections.abc import Callable
 
 parser = argparse.ArgumentParser(
-    prog = 'phonerec',
-    description = 'segmented phone recognizer',
+    prog='phonerec',
+    description='segmented phone recognizer',
 )
 parser.add_argument(
     '-s',
     '--stretch',
-    action = "store_true",
+    action="store_true",
 )
 parser.add_argument(
     '-d',
     '--distance',
-    default = "dtw",
+    default="dtw",
 )
 parser.add_argument(
     '--verbose',
-    action = "store_true",
+    action="store_true",
 )
 args = parser.parse_args()
 
@@ -95,6 +96,7 @@ def save_phones_to_pkl(phones: list[Phone], filename: str):
     with open(filename, "wb") as f:
         pickle.dump(phones, f)
 
+
 # read phones from a file
 def read_phones_from_pkl(filename: str) -> list[Phone]:
     with open(filename, "rb") as f:
@@ -102,7 +104,8 @@ def read_phones_from_pkl(filename: str) -> list[Phone]:
     return phones
 
 
-def get_phones(namer: Callable[[str], str], do_pkl=None) -> tuple[list[Phone], list[Phone], bool]:
+def get_phones(namer: Callable[[str], str],
+               do_pkl=None) -> tuple[list[Phone], list[Phone], bool]:
     assert do_pkl is not None, "get_phones: pkl required"
     pkls = (
         (Path(namer("train")), "TRAIN"),
@@ -129,6 +132,7 @@ def get_phones(namer: Callable[[str], str], do_pkl=None) -> tuple[list[Phone], l
             tt_phones.append(phones)
             pkled = True
     return (*tt_phones, pkled)
+
 
 def drop_ignored_phones(phones: list[Phone]) -> list[Phone]:
     return list(
@@ -223,7 +227,7 @@ def get_n_from_each_group(phone_groups: dict[str, list[Phone]],
 def predict_phone(train_set_phones: list[Phone], test_phone: Phone) -> str:
 
     # using KNN to find the nearest neighbor
-    k = 10
+    k = 100
     # using a heap to keep track of the samllest k element
     # the items in the heap are tuples like (negative distance to the test_set_phone, train_set_phone transcription)
     heap = []
@@ -281,19 +285,27 @@ def stretch_phones(phones: list[Phone]):
         )
         assert len(phone.data) == 1024, "incorrect phone resize"
 
+
 def report_stats(phones):
     if args.verbose:
         phone_lens = [len(p.data) for p in phones]
-        pls = [min(phone_lens), sum(phone_lens) / len(phone_lens), max(phone_lens)]
+        pls = [
+            min(phone_lens),
+            sum(phone_lens) / len(phone_lens),
+            max(phone_lens)
+        ]
         print(f"phone lens: min={pls[0]} avg={pls[1]} max={pls[2]}")
+
 
 if __name__ == "__main__":
     if args.stretch:
         namer = lambda t: f"stretched_{t}_set_phones.pkl"
-        train_set_phones, test_set_phones, pkld = get_phones(namer, do_pkl=False)
+        train_set_phones, test_set_phones, pkld = get_phones(namer,
+                                                             do_pkl=False)
     else:
         namer = lambda t: f"raw_{t}_set_phones.pkl"
-        train_set_phones, test_set_phones, pkld = get_phones(namer, do_pkl=True)
+        train_set_phones, test_set_phones, pkld = get_phones(namer,
+                                                             do_pkl=True)
 
     train_set_phones = drop_ignored_phones(train_set_phones)
     test_set_phones = drop_ignored_phones(test_set_phones)
