@@ -15,7 +15,7 @@ class Phone():
         return f"samplerate = {self.samplerate}, data = {self.data}, \
             transcription = {self.transcription}, mfcc_seq = {self.mfcc_seq}"
 
-    def get_mfcc_seq(self):
+    def get_mfcc_seq(self) -> np.ndarray:
         self.mfcc_seq = mfcc(self.data, self.samplerate)
         return self.mfcc_seq
 
