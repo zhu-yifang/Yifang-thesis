@@ -298,8 +298,8 @@ def test(train_set_phones: list[Phone], test_phones: list[Phone]):
         # scale /= 2
 
 
-# stretch the phones to 1024 samples long
 def stretch_phones(phones: list[Phone]):
+    """stretch the phones to 1024 samples"""
     for phone in phones:
         phone.data = librosa.effects.time_stretch(
             phone.data,
