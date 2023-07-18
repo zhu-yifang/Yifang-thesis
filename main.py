@@ -1,3 +1,7 @@
+# Main program for phone recognizer
+# author: Yifang Zhu
+
+
 from pathlib import Path
 from recognizer.file import File
 from recognizer.phone import Phone
@@ -224,9 +228,9 @@ def get_n_from_each_group(phone_groups: dict[str, list[Phone]],
     return res
 
 
-def predict_phone(train_set_phones: list[Phone], test_phone: Phone) -> str:
-
-    # using KNN to find the nearest neighbor
+def predict_phone(train_set_phones: list[Phone],
+                  test_phone: Phone) -> list[tuple[str, int]]:
+    """Using KNN to predict the label of the test_phone"""
     k = 100
     # using a heap to keep track of the samllest k element
     # the items in the heap are tuples like (negative distance to the test_set_phone, train_set_phone transcription)
@@ -256,27 +260,46 @@ def predict_phone(train_set_phones: list[Phone], test_phone: Phone) -> str:
         counter[transcription] += 1
 
     # predicted_phone is the most common phone in the heap
-    predicted_phone = counter.most_common(1)[0][0]
-    return predicted_phone
+    predicted_phones = counter.most_common(5)
+    return predicted_phones
 
 
 def test(train_set_phones: list[Phone], test_phones: list[Phone]):
-    with open('test_result.csv', 'w') as f:
-        writer = csv.writer(f)
-        writer.writerow(['True phone', 'Predicted phone'])
-        correct_num = 0
-        for test_phone in test_phones:
-            print(f"Predicting {test_phone.transcription}...")
-            predicted_phone = predict_phone(train_set_phones, test_phone)
-            print(f"Predicted {predicted_phone}")
-            if predicted_phone == test_phone.transcription:
-                correct_num += 1
-            writer.writerow([test_phone.transcription, predicted_phone])
+
+    # scale = 1
+    for _ in range(6):
+        with open(f'test_result.csv', 'w') as f:
+            train_phones = random.sample(train_set_phones, 100)
+            print(f"training set size: {len(train_phones)}")
+            writer = csv.writer(f)
+            writer.writerow([
+                'True phone', '1st predicted phone', '2nd predicted phone',
+                '3rd predicted phone', '4th predicted phone',
+                '5th predicted phone'
+            ])
+            correct_num = 0
+            for test_phone in test_phones:
+                # print(f"Predicting {test_phone.transcription}...")
+                predicted_phones = predict_phone(train_phones, test_phone)
+                # print(f"Predicted {predicted_phones}")
+                if test_phone.transcription in [
+                        p[0] for p in predicted_phones
+                ]:
+                    correct_num += 1
+                if len(predicted_phones) < 5:
+                    predicted_phones += [('None', 0)
+                                         ] * (5 - len(predicted_phones))
+                writer.writerow([
+                    test_phone.transcription, predicted_phones[0][0],
+                    predicted_phones[1][0], predicted_phones[2][0],
+                    predicted_phones[3][0], predicted_phones[4][0]
+                ])
         print(f"The accuracy is {correct_num / len(test_phones)}")
+        # scale /= 2
 
 
-# stretch the phones to 1024 samples long
 def stretch_phones(phones: list[Phone]):
+    """stretch the phones to 1024 samples"""
     for phone in phones:
         phone.data = librosa.effects.time_stretch(
             phone.data,
