@@ -4,8 +4,6 @@ from pathlib import Path
 import numpy as np
 import librosa
 from python_speech_features import mfcc
-import sounddevice as sd
-import tensorflow as tf
 from typing import Union, Optional
 
 # Defines the global variables here
