@@ -156,7 +156,7 @@ def read_phn_file(path: str) -> Optional[list[tuple[str, str, str]]]:
     phn_path = TIMIT / "data" / Path(path + ".phn")
     try:
         with open(phn_path, "r") as f:
-            return [line.split() for line in f]
+            return [tuple(line.split()) for line in f]
     except FileNotFoundError:
         print(f"File not found: {phn_path}")
         return []
@@ -169,7 +169,9 @@ def get_samples_from_file(
         path: str) -> list[dict[str, Union[int, str, np.ndarray]]]:
     wav_array = read_wav_file(path)
     phn_data = read_phn_file(path)
-
+    # Make sure `phn_data` and `wav_array` are not empty
+    assert wav_array is not None, "The wav array must not be empty"
+    assert phn_data is not None, "The phn data must not be empty"
     samples = []
     for start, end, transcription in phn_data:
         start, end = int(start), int(end)
@@ -242,7 +244,7 @@ def add_mfcc_vects(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def get_X_y(df: pd.DataFrame) -> (np.ndarray, np.ndarray):
+def get_X_y(df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
     """
     Get the X and y from the DataFrame.
 
@@ -257,7 +259,7 @@ def get_X_y(df: pd.DataFrame) -> (np.ndarray, np.ndarray):
 
 
 def normalize_X(X_train: np.ndarray,
-                X_test: np.ndarray) -> (np.ndarray, np.ndarray):
+                X_test: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """
     Normalize the X matrices with z-score normalization
 
