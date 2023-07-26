@@ -5,6 +5,7 @@ import numpy as np
 import librosa
 from python_speech_features import mfcc
 import sounddevice as sd
+import tensorflow as tf
 
 # Defines the global variables here
 # Path to the dataset
@@ -173,3 +174,92 @@ def get_samples(paths_no_ext: pd.Series) -> pd.DataFrame:
         "phonetic_transcription": phonetic_transcriptions,
         "wav_array": wav_arries
     })
+
+
+# To make all the features with the same length, we need to use `librosa` to stretch or shrink the `wav_array` to the same length. Because the mean length of `wav_array` is 1279.5, we will stretch the `wav_array` to the length of 1024. And add a new column `wav_array_stretched` to `train_data_new` to store the stretched `wav_array`
+def stretch_wav_array(wav_array: np.ndarray) -> np.ndarray:
+    """
+    Stretch the wav array to the length of 1024.
+
+    :param wav_array: a wav array
+    :type wav_array: np.ndarray
+    :return: a stretched wav array
+    :rtype: np.ndarray
+    """
+    # Set n_fft to be no larger than the length of the signal
+    n_fft = min(len(wav_array), 512)
+    return librosa.effects.time_stretch(wav_array,
+                                        rate=(len(wav_array) / 1024),
+                                        n_fft=n_fft)
+
+
+def get_mfcc_vect(wav_array: np.ndarray) -> np.ndarray:
+    """
+    Get the MFCC vector from the wav array.
+
+    :param wav_array: a wav array with length of 1024
+    :type wav_array: np.ndarray
+    :return: a MFCC vector with length 195
+    :rtype: np.ndarray
+    """
+    assert len(wav_array) == 1024, "The length of the wav array must be 1024"
+    mfcc_vect = np.concatenate(
+        mfcc(wav_array, samplerate=16000).reshape(-1),
+        librosa.feature.delta(mfcc(wav_array, samplerate=16000)).reshape(-1),
+        librosa.feature.delta(mfcc(wav_array, samplerate=16000),
+                              order=2).reshape(-1),
+    )
+    assert len(mfcc_vect) == 195, "The length of the MFCC vector must be 195"
+    return mfcc_vect
+
+
+# Calculate the MFCC vectors for all the samples in the training set and test set
+def add_mfcc_vects(pd: pd.DataFrame) -> pd.DataFrame:
+    """
+    Add the MFCC vectors to the DataFrame.
+
+    :param pd: a DataFrame, either from `read_metadata` or `get_core_test_set`
+    :type pd: pd.DataFrame
+    :return: a DataFrame
+    :rtype: pd.DataFrame
+    """
+    mfcc_vects = []
+    for wav_array in pd["wav_array"]:
+        wav_array_stretched = stretch_wav_array(wav_array)
+        mfcc_vect = get_mfcc_vect(wav_array_stretched)
+        mfcc_vects.append(mfcc_vect)
+    pd["mfcc_vect"] = mfcc_vects
+    return pd
+
+
+def get_X_y(pd: pd.DataFrame) -> (np.ndarray, np.ndarray):
+    """
+    Get the X and y from the DataFrame.
+
+    :param pd: a `DataFrame` contains the `mfcc_vect` column
+    :type pd: pd.DataFrame
+    :return: a tuple of X and y
+    :rtype: (np.ndarray, np.ndarray)
+    """
+    X = np.array(pd["mfcc_vect"].tolist())
+    y = np.array(pd["class"].tolist())
+    return X, y
+
+
+def normalize_X(X_train: np.ndarray,
+                X_test: np.ndarray) -> (np.ndarray, np.ndarray):
+    """
+    Normalize the X matrices with z-score normalization
+
+    :param X_train: the X matrix of the training set
+    :type X_train: np.ndarray
+    :param X_test: the X matrix of the test set
+    :type X_test: np.ndarray
+    :return: a tuple of normalized X matrices
+    :rtype: (np.ndarray, np.ndarray)
+    """
+    X_train_mean = np.mean(X_train, axis=0)
+    X_train_std = np.std(X_train, axis=0)
+    X_train_normalized = (X_train - X_train_mean) / X_train_std
+    X_test_normalized = (X_test - X_train_mean) / X_train_std
+    return X_train_normalized, X_test_normalized
