@@ -6,7 +6,7 @@ import librosa
 from python_speech_features import mfcc
 import sounddevice as sd
 import tensorflow as tf
-from typing import Union
+from typing import Union, Optional
 
 # Defines the global variables here
 # Path to the dataset
@@ -141,16 +141,30 @@ def get_paths_no_ext(df: pd.DataFrame) -> pd.Series:
     return paths_no_ext
 
 
-def read_wav_file(path: str) -> np.ndarray:
+def read_wav_file(path: str) -> Optional[np.ndarray]:
     wav_path = TIMIT / "data" / Path(path + ".WAV.wav")
-    wav_array, _ = librosa.load(wav_path, sr=None)
-    return wav_array
+    try:
+        wav_array, _ = librosa.load(wav_path, sr=None)
+        return wav_array
+    except FileNotFoundError:
+        print(f"File not found: {wav_path}")
+        return None
+    except Exception as e:
+        print(f"An error occurred while reading {wav_path}: {str(e)}")
+        return None
 
 
-def read_phn_file(path: str) -> list[tuple[str, str, str]]:
+def read_phn_file(path: str) -> Optional[list[tuple[str, str, str]]]:
     phn_path = TIMIT / "data" / Path(path + ".phn")
-    with open(phn_path, "r") as f:
-        return [line.split() for line in f]
+    try:
+        with open(phn_path, "r") as f:
+            return [line.split() for line in f]
+    except FileNotFoundError:
+        print(f"File not found: {phn_path}")
+        return []
+    except Exception as e:
+        print(f"An error occurred while reading {phn_path}: {str(e)}")
+        return []
 
 
 def get_samples_from_file(
@@ -207,7 +221,7 @@ def get_mfcc_vect(wav_array: np.ndarray) -> np.ndarray:
     assert len(wav_array) == 1024, "The length of the wav array must be 1024"
     mfcc_order0 = mfcc(wav_array, samplerate=16000).reshape(-1)
     mfcc_vect = np.concatenate(
-        mfcc(wav_array, samplerate=16000).reshape(-1),
+        mfcc_order0,
         librosa.feature.delta(mfcc_order0).reshape(-1),
         librosa.feature.delta(mfcc_order0, order=2).reshape(-1),
     )
@@ -258,6 +272,10 @@ def normalize_X(X_train: np.ndarray,
     """
     X_train_mean = np.mean(X_train, axis=0)
     X_train_std = np.std(X_train, axis=0)
+
+    # Adding a small constant in the denominator to prevent division by zero
+    X_train_std += 1e-7
+
     X_train_normalized = (X_train - X_train_mean) / X_train_std
     X_test_normalized = (X_test - X_train_mean) / X_train_std
     return X_train_normalized, X_test_normalized
