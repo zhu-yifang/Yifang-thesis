@@ -133,13 +133,17 @@ def get_paths_no_ext(df: pd.DataFrame) -> pd.Series:
     :rtype: pd.Series
     """
     paths_no_ext = df["path_from_data_dir"].str.split(".").str[0]
+    # Drop the duplicates
     paths_no_ext.drop_duplicates(inplace=True)
+    # Drop `NaN` values
+    paths_no_ext.dropna(inplace=True)
     # Reset the index of `train_path_no_ext`
     paths_no_ext.reset_index(drop=True, inplace=True)
     return paths_no_ext
 
 
 def read_wav_file(path: str) -> Optional[np.ndarray]:
+    assert type(path) == str, f"The type of path must be str, not {type(path)}"
     wav_path = TIMIT / "data" / Path(path + ".WAV.wav")
     try:
         wav_array, _ = librosa.load(wav_path, sr=None)
@@ -175,6 +179,9 @@ def get_samples_from_file(
     samples = []
     for start, end, transcription in phn_data:
         start, end = int(start), int(end)
+        # If the transcriptions are "h#", "epi", "pau", skip it
+        if transcription in ["h#", "epi", "pau"]:
+            continue
         sample = {
             "class": PHONEME_TO_INDEX[transcription],
             "phonetic_transcription": transcription,
@@ -204,9 +211,13 @@ def stretch_wav_array(wav_array: np.ndarray) -> np.ndarray:
     """
     # Set n_fft to be no larger than the length of the signal
     n_fft = min(len(wav_array), 512)
-    return librosa.effects.time_stretch(wav_array,
-                                        rate=(len(wav_array) / 1024),
-                                        n_fft=n_fft)
+    stretched_wav_array = librosa.effects.time_stretch(wav_array,
+                                                       rate=(len(wav_array) /
+                                                             1024),
+                                                       n_fft=n_fft)
+    assert len(stretched_wav_array
+               ) == 1024, "The length of the stretched wav array must be 1024"
+    return stretched_wav_array
 
 
 def get_mfcc_vect(wav_array: np.ndarray) -> np.ndarray:
@@ -220,11 +231,11 @@ def get_mfcc_vect(wav_array: np.ndarray) -> np.ndarray:
     """
     assert len(wav_array) == 1024, "The length of the wav array must be 1024"
     mfcc_order0 = mfcc(wav_array, samplerate=16000).reshape(-1)
-    mfcc_vect = np.concatenate(
+    mfcc_vect = np.concatenate([
         mfcc_order0,
         librosa.feature.delta(mfcc_order0).reshape(-1),
         librosa.feature.delta(mfcc_order0, order=2).reshape(-1),
-    )
+    ])
     assert len(mfcc_vect) == 195, "The length of the MFCC vector must be 195"
     return mfcc_vect
 
@@ -233,14 +244,16 @@ def get_mfcc_vect(wav_array: np.ndarray) -> np.ndarray:
 def add_mfcc_vects(df: pd.DataFrame) -> pd.DataFrame:
     """
     Add the MFCC vectors to the DataFrame.
+    First, stretch the wav array to the length of 1024.
+    Then, calculate the MFCC vector from the stretched wav array.
 
     :param df: a DataFrame, either from `read_metadata` or `get_core_test_set`
     :type df: pd.DataFrame
     :return: a DataFrame
     :rtype: pd.DataFrame
     """
-    df["mfcc_vect"] = df["wav_array"].apply(stretch_wav_array).apply(
-        get_mfcc_vect)
+    df["wav_array_stretched"] = df["wav_array"].apply(stretch_wav_array)
+    df["mfcc_vect"] = df["wav_array_stretched"].apply(get_mfcc_vect)
     return df
 
 
