@@ -292,3 +292,37 @@ def normalize_X(X_train: np.ndarray,
     X_train_normalized = (X_train - X_train_mean) / X_train_std
     X_test_normalized = (X_test - X_train_mean) / X_train_std
     return X_train_normalized, X_test_normalized
+
+
+# Have a function to get the X and y matrices from the training set and test set
+def get_matrices():
+    """
+    Get the X and y matrices from the training set and test set.
+
+    :return: X_train, y_train, X_test, y_test
+    :rtype: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+    """
+    # Read the metadata
+    train_data = read_metadata(TRAIN_METADATA_PATH)
+    test_data = read_metadata(TEST_METADATA_PATH)
+    # Get the core test set
+    core_test_set = get_core_test_set(test_data)
+    # Get the paths without extensions
+    train_paths_no_ext = get_paths_no_ext(train_data)
+    test_paths_no_ext = get_paths_no_ext(core_test_set)
+    # Get the samples
+    train_samples = get_samples(train_paths_no_ext)
+    test_samples = get_samples(test_paths_no_ext)
+    # Add the MFCC vectors
+    train_data_new = add_mfcc_vects(train_samples)
+    test_data_new = add_mfcc_vects(test_samples)
+    # Get the X and y matrices
+    X_train, y_train = get_X_y(train_data_new)
+    X_test, y_test = get_X_y(test_data_new)
+    # Normalize the X matrices
+    X_train_normalized, X_test_normalized = normalize_X(X_train, X_test)
+    return X_train_normalized, y_train, X_test_normalized, y_test
+
+
+if __name__ == "__main__":
+    X_train, y_train, X_test, y_test = get_matrices()
