@@ -11,3 +11,5 @@ __pycache__
 .txt
 # ignore ipynb_checkpoints
 .ipynb_checkpoints
+# ignore samples directory
+samples/
