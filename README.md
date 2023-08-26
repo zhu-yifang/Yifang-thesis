@@ -6,10 +6,10 @@
 - [x] Train
 - [x] Test
 - [x] Get the number of each phone
-- [ ] Remove the slicence and pause and do the folding
-- [ ] Build Confusion matrix, get 50 samples for each phone
+- [ ] Remove the silence and pause and do the folding
+- [ ] Build a Confusion matrix, get 50 samples for each phone
 - [ ] Export to Excel automatically
-- [ ] Try clustering or normailizing
+- [ ] Try clustering or normalizing
 - [ ] Try reduced training sets
 - [ ] Investigate normalizing instances
 - [ ] Power spectra, diff MFCC features
